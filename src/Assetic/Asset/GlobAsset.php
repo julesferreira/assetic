@@ -23,6 +23,7 @@ class GlobAsset extends AssetCollection
 {
     private $globs;
     private $initialized;
+    private $recursive;
 
     /**
      * Constructor.
@@ -31,11 +32,13 @@ class GlobAsset extends AssetCollection
      * @param array        $filters An array of filters
      * @param string       $root    The root directory
      * @param array        $vars
+     * @param bool         $recursive Should the glob search recursively
      */
-    public function __construct($globs, $filters = array(), $root = null, array $vars = array())
+    public function __construct($globs, $filters = array(), $root = null, array $vars = array(), $recursive = false)
     {
         $this->globs = (array) $globs;
         $this->initialized = false;
+        $this->recursive = $recursive;
 
         parent::__construct(array(), $filters, $root, $vars);
     }
@@ -99,7 +102,15 @@ class GlobAsset extends AssetCollection
         foreach ($this->globs as $glob) {
             $glob = VarUtils::resolve($glob, $this->getVars(), $this->getValues());
 
-            if (false !== $paths = glob($glob)) {
+            // handle recursive globs
+            $paths = false;
+            if ($this->recursive) {
+                $paths = $this->rglob($glob, GLOB_NOSORT);
+            } else {
+                $paths = glob($glob, GLOB_NOSORT);
+            }
+
+            if (false !== $paths) {
                 foreach ($paths as $path) {
                     if (is_file($path)) {
                         $asset = new FileAsset($path, array(), $this->getSourceRoot(), null, $this->getVars());
@@ -111,5 +122,21 @@ class GlobAsset extends AssetCollection
         }
 
         $this->initialized = true;
+    }
+
+    /**
+     * Recursive glob
+     *
+     * @param string $pattern the pattern
+     * @param int    $flags   optional flags
+     *
+     * @return array matches
+     */
+    private function rglob($pattern, $flags = 0) {
+        $files = glob($pattern, $flags);
+        foreach (glob(dirname($pattern) . '/*', GLOB_ONLYDIR | GLOB_NOSORT) as $dir) {
+            $files = array_merge($files, $this->rglob($dir . '/' . basename($pattern), $flags));
+        }
+        return $files;
     }
 }

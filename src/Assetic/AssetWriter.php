@@ -12,6 +12,7 @@
 namespace Assetic;
 
 use Assetic\Asset\AssetInterface;
+use Assetic\Factory\AssetFactory;
 use Assetic\Util\VarUtils;
 
 /**
@@ -23,18 +24,29 @@ use Assetic\Util\VarUtils;
 class AssetWriter
 {
     private $dir;
+    private $dryRun;
+    private $factory;
+    private $force;
+    private $quiet;
     private $values;
 
     /**
      * Constructor.
      *
-     * @param string $dir    The base web directory
-     * @param array  $values Variable values
+     * @param string       $dir     The base web directory
+     * @param AssetFactory $factory The asset factory
+     * @param array        $options Write options
+     * @param array        $values  Variable values
      *
      * @throws \InvalidArgumentException if a variable value is not a string
      */
-    public function __construct($dir, array $values = array())
+    public function __construct($dir, AssetFactory $factory, array $options, array $values = array())
     {
+        $this->dryRun = $options['dryRun'];
+        $this->factory = $factory;
+        $this->force = $options['force'];
+        $this->quiet = $options['quiet'];
+
         foreach ($values as $var => $vals) {
             foreach ($vals as $value) {
                 if (!is_string($value)) {
@@ -59,14 +71,21 @@ class AssetWriter
         foreach (VarUtils::getCombinations($asset->getVars(), $this->values) as $combination) {
             $asset->setValues($combination);
 
-            static::write(
-                $this->dir.'/'.VarUtils::resolve(
-                    $asset->getTargetPath(),
-                    $asset->getVars(),
-                    $asset->getValues()
-                ),
-                $asset->dump()
+            $path = $this->dir.'/'.VarUtils::resolve(
+                $asset->getTargetPath(),
+                $asset->getVars(),
+                $asset->getValues()
             );
+
+            if ($this->force || !file_exists($path) || $this->factory->getLastModified($asset) > filemtime($path)) {
+                $this->log('Writing: ' . $path);
+                if (!$this->dryRun) {
+                    static::write($path, $asset->combineThenDump());
+                }
+            }
+            else {
+                $this->log('Skipping: ' . $path);
+            }
         }
     }
 
@@ -90,5 +109,11 @@ class AssetWriter
     private function getCombinations(array $vars)
     {
         return VarUtils::getCombinations($vars, $this->values);
+    }
+
+    private function log($m) {
+        if (!$this->quiet) {
+            echo "[AssetWriter]: $m\n";
+        }
     }
 }
