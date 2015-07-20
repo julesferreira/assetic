@@ -235,4 +235,21 @@ class AssetCollection implements \IteratorAggregate, AssetCollectionInterface
     {
         return $this->values;
     }
+
+    public function combineThenDump() {
+        // loop through leaves and add each raw asset
+        $parts = array();
+        $filtersAdded = $this->filters->all();
+        foreach ($this as $asset) {
+            if (!$filtersAdded) {
+                $this->filters = new FilterCollection($asset->getFilters());
+                $filtersAdded = true;
+            }
+            $parts[] = file_get_contents($asset->getSourceRoot() . '/' . $asset->getSourcePath());
+        }
+
+        $combinedAsset = new StringAsset(implode("\n", $parts), $this->filters->all());
+        $combinedAsset->setLastModified($this->getLastModified());
+        return $combinedAsset->dump();
+    }
 }
