@@ -18,6 +18,8 @@ namespace Assetic\Util;
  */
 class FilesystemUtils
 {
+    private static $tmp;
+
     /**
      * Recursively removes a directory from the filesystem.
      */
@@ -77,8 +79,16 @@ class FilesystemUtils
         return tempnam(self::getTemporaryDirectory(), 'assetic_'.$prefix);
     }
 
+    public static function setTemporaryDirectory($tmp)
+    {
+        self::$tmp = $tmp;
+    }
+
     public static function getTemporaryDirectory()
     {
+        if (self::$tmp) {
+            return realpath(self::$tmp);
+        }
         return realpath(sys_get_temp_dir());
     }
 }
