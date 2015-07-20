@@ -302,6 +302,8 @@ class AssetFactory
      */
     protected function parseInput($input, array $options = array())
     {
+        $input = str_replace('@feature/', '../templates/twig/', $input);
+
         if ('@' == $input[0]) {
             return $this->createAssetReference(substr($input, 1));
         }
@@ -350,7 +352,12 @@ class AssetFactory
 
     protected function createGlobAsset($glob, $root = null, $vars)
     {
-        return new GlobAsset($glob, array(), $root, $vars);
+        $recursive = false;
+        if (is_string($glob) && (strpos($glob, '**') !== false)) {
+            $recursive = true;
+            $glob = str_replace('**', '*', $glob);
+        }
+        return new GlobAsset($glob, array(), $root, $vars, $recursive);
     }
 
     protected function createFileAsset($source, $root = null, $path = null, $vars)
